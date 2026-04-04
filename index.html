@@ -15,19 +15,29 @@
                 Score: <span id="score">0</span>
             </div>
             <div class="timer-display">
-                Time: <span id="timer">30</span>s
+                Time: <span id="timer">40</span>s
             </div>
+        </div>
+
+        <div class="speed-control">
+            <label for="speed-slider" class="speed-label">Bunny Speed</label>
+            <input type="range" id="speed-slider" min="1" max="5" step="1" value="3">
+            <div class="speed-labels">
+                <span class="speed-left">🐢 Turtle Slow</span>
+                <span class="speed-right">⚡ Super Speedy</span>
+            </div>
+            <div id="speed-text" class="speed-text">Level 3: Just Right</div>
         </div>
 
         <div id="game-container" class="game-container">
             <button id="start-btn" class="start-btn">Start Game</button>
+            <button id="play-again-btn" class="start-btn hidden">Play Again</button>
         </div>
 
         <div id="game-over" class="game-over hidden">
             <h2>Game Over!</h2>
             <p class="final-score">Score: <span id="final-score">0</span></p>
             <p id="message" class="message"></p>
-            <button id="play-again-btn" class="play-btn">Play Again</button>
         </div>
     </div>
 

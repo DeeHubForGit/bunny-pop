@@ -51,6 +51,81 @@ body {
     color: #ff1493;
 }
 
+.speed-control {
+    background: white;
+    padding: 20px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.speed-label {
+    display: block;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ff69b4;
+    margin-bottom: 10px;
+}
+
+#speed-slider {
+    width: 100%;
+    height: 8px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #ffc0cb, #ff69b4);
+    outline: none;
+    -webkit-appearance: none;
+    margin-bottom: 5px;
+}
+
+#speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ff1493;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(255, 20, 147, 0.4);
+}
+
+#speed-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #ff1493;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(255, 20, 147, 0.4);
+}
+
+#speed-slider:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#speed-slider:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+}
+
+#speed-slider:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+}
+
+.speed-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: #ff69b4;
+    margin-bottom: 10px;
+}
+
+.speed-text {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #ff1493;
+    margin-top: 5px;
+}
+
 .game-container {
     width: 100%;
     height: 400px;
@@ -113,10 +188,14 @@ body {
     user-select: none;
     transition: transform 0.2s;
     animation: appear 0.3s ease-out;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.bunny:hover {
-    transform: scale(1.2);
+@media (hover: hover) {
+    .bunny:hover {
+        transform: scale(1.2);
+    }
 }
 
 .bunny.golden {

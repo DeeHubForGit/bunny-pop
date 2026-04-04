@@ -7,6 +7,7 @@ let spawnTimeout = null;
 let currentBunny = null;
 let spawnCount = 0;
 let goldenSpawns = [];
+let bunnySpawnTime = 0;
 
 // Constants
 const BUNNY_SIZE = 120;
@@ -21,13 +22,57 @@ const scoreDisplay = document.getElementById('score');
 const timerDisplay = document.getElementById('timer');
 const finalScoreDisplay = document.getElementById('final-score');
 const messageDisplay = document.getElementById('message');
+const speedSlider = document.getElementById('speed-slider');
+const speedText = document.getElementById('speed-text');
 
 // Pop texts for fun
 const popTexts = ['Boing!', 'Poof!', 'Bunished!', 'Pop!', 'Yay!'];
 
-// Start game
+// Speed configuration
+const speedConfig = {
+    1: { min: 1800, max: 2300, name: 'Level 1: Turtle Slow' },
+    2: { min: 1400, max: 1900, name: 'Level 2: Slow' },
+    3: { min: 1100, max: 1600, name: 'Level 3: Just Right' },
+    4: { min: 900, max: 1300, name: 'Level 4: Fast' },
+    5: { min: 700, max: 1000, name: 'Level 5: Super Speedy' }
+};
+
+// Initialize speed setting
+loadSavedSpeed();
+
+// Event listeners
 startBtn.addEventListener('click', startGame);
 playAgainBtn.addEventListener('click', startGame);
+speedSlider.addEventListener('input', handleSpeedChange);
+
+// Speed control functions
+function loadSavedSpeed() {
+    const savedSpeed = localStorage.getItem('bunnyPopSpeed');
+    const speed = savedSpeed ? parseInt(savedSpeed) : 3;
+    speedSlider.value = speed;
+    updateSpeedDisplay(speed);
+}
+
+function handleSpeedChange() {
+    if (gameActive) return;
+    
+    const speed = parseInt(speedSlider.value);
+    updateSpeedDisplay(speed);
+    saveSpeedSetting(speed);
+}
+
+function updateSpeedDisplay(speed) {
+    speedText.textContent = speedConfig[speed].name;
+}
+
+function saveSpeedSetting(speed) {
+    localStorage.setItem('bunnyPopSpeed', speed);
+}
+
+function getSpawnDelayRange() {
+    const speed = parseInt(speedSlider.value);
+    return speedConfig[speed];
+}
 
 function startGame() {
     // Clear any existing intervals and timeouts
@@ -65,7 +110,11 @@ function startGame() {
     
     // Hide/show elements
     startBtn.classList.add('hidden');
+    playAgainBtn.classList.add('hidden');
     gameOver.classList.add('hidden');
+    
+    // Disable speed slider during gameplay
+    speedSlider.disabled = true;
     
     // Start timer
     timerInterval = setInterval(updateTimer, 1000);
@@ -92,7 +141,8 @@ function scheduleNextBunny() {
         spawnTimeout = null;
     }
     
-    const spawnDelay = 1000 + Math.random() * 400;
+    const delayRange = getSpawnDelayRange();
+    const spawnDelay = delayRange.min + Math.random() * (delayRange.max - delayRange.min);
     spawnTimeout = setTimeout(() => {
         spawnTimeout = null;
         spawnBunny();
@@ -101,6 +151,12 @@ function scheduleNextBunny() {
 
 function spawnBunny() {
     if (!gameActive) return;
+    
+    // Ensure bunny stays visible for at least 400ms before replacement
+    if (currentBunny && Date.now() - bunnySpawnTime < 400) {
+        scheduleNextBunny();
+        return;
+    }
     
     // Remove old bunny if exists
     if (currentBunny) {
@@ -133,12 +189,18 @@ function spawnBunny() {
     bunny.style.left = randomX + 'px';
     bunny.style.top = randomY + 'px';
     
-    // Add click handler
-    bunny.addEventListener('click', () => handleBunnyClick(bunny, isGolden));
+    // Add touch-friendly input handler
+    bunny.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        handleBunnyClick(bunny, isGolden);
+    });
     
     // Add to container
     gameContainer.appendChild(bunny);
     currentBunny = bunny;
+    
+    // Record spawn time for minimum visibility protection
+    bunnySpawnTime = Date.now();
     
     // Schedule next spawn (slower pace for tablet play)
     scheduleNextBunny();
@@ -228,6 +290,12 @@ function endGame() {
         message = '🏆 Bunny Pop Champion! 🏆';
     }
     messageDisplay.textContent = message;
+    
+    // Re-enable speed slider
+    speedSlider.disabled = false;
+    
+    // Show Play Again button in center of game area
+    playAgainBtn.classList.remove('hidden');
     
     gameOver.classList.remove('hidden');
 }
