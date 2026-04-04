@@ -92,7 +92,7 @@ function scheduleNextBunny() {
         spawnTimeout = null;
     }
     
-    const spawnDelay = 1000 + Math.random() * 500;
+    const spawnDelay = 1000 + Math.random() * 400;
     spawnTimeout = setTimeout(() => {
         spawnTimeout = null;
         spawnBunny();
