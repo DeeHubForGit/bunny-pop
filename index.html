@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunny Pop</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">🐰 Bunny Pop 🐰</h1>
+        
+        <div class="info-bar">
+            <div class="score-display">
+                Score: <span id="score">0</span>
+            </div>
+            <div class="timer-display">
+                Time: <span id="timer">30</span>s
+            </div>
+        </div>
+
+        <div id="game-container" class="game-container">
+            <button id="start-btn" class="start-btn">Start Game</button>
+        </div>
+
+        <div id="game-over" class="game-over hidden">
+            <h2>Game Over!</h2>
+            <p class="final-score">Score: <span id="final-score">0</span></p>
+            <p id="message" class="message"></p>
+            <button id="play-again-btn" class="play-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
