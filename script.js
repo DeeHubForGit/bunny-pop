@@ -1,14 +1,16 @@
 // Game state
 let score = 0;
-let timeLeft = 30;
+let timeLeft = 40;
 let gameActive = false;
 let timerInterval = null;
 let spawnTimeout = null;
 let currentBunny = null;
+let spawnCount = 0;
+let goldenSpawns = [];
 
 // Constants
 const BUNNY_SIZE = 120;
-const GAME_DURATION = 30;
+const GAME_DURATION = 40;
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
@@ -49,6 +51,13 @@ function startGame() {
     score = 0;
     timeLeft = GAME_DURATION;
     gameActive = true;
+    spawnCount = 0;
+    
+    // Plan guaranteed golden bunnies for this round
+    // Estimate ~13 spawns in 40 seconds, guarantee at least 2 golden
+    const goldenSpawn1 = 2 + Math.floor(Math.random() * 4); // spawn 2-5
+    const goldenSpawn2 = 7 + Math.floor(Math.random() * 4); // spawn 7-10
+    goldenSpawns = [goldenSpawn1, goldenSpawn2];
     
     // Update displays
     scoreDisplay.textContent = score;
@@ -74,6 +83,22 @@ function updateTimer() {
     }
 }
 
+function scheduleNextBunny() {
+    if (!gameActive) return;
+    
+    // Clear any existing timeout to prevent overlaps
+    if (spawnTimeout) {
+        clearTimeout(spawnTimeout);
+        spawnTimeout = null;
+    }
+    
+    const spawnDelay = 1000 + Math.random() * 500;
+    spawnTimeout = setTimeout(() => {
+        spawnTimeout = null;
+        spawnBunny();
+    }, spawnDelay);
+}
+
 function spawnBunny() {
     if (!gameActive) return;
     
@@ -83,8 +108,11 @@ function spawnBunny() {
         currentBunny = null;
     }
     
-    // Determine if golden bunny (10% chance)
-    const isGolden = Math.random() < 0.1;
+    // Increment spawn counter
+    spawnCount++;
+    
+    // Determine if golden bunny (guaranteed at planned spawns)
+    const isGolden = goldenSpawns.includes(spawnCount);
     
     // Create bunny
     const bunny = document.createElement('div');
@@ -112,14 +140,16 @@ function spawnBunny() {
     gameContainer.appendChild(bunny);
     currentBunny = bunny;
     
-    // Schedule next spawn (slower pace for young children)
-    const spawnDelay = 1800 + Math.random() * 700;
-    
-    spawnTimeout = setTimeout(spawnBunny, spawnDelay);
+    // Schedule next spawn (slower pace for tablet play)
+    scheduleNextBunny();
 }
 
 function handleBunnyClick(bunny, isGolden) {
     if (!gameActive) return;
+    
+    // Prevent double-clicking during animation
+    if (bunny.dataset.popping === 'true') return;
+    bunny.dataset.popping = 'true';
     
     // Clear pending spawn timeout immediately
     if (spawnTimeout) {
@@ -142,9 +172,9 @@ function handleBunnyClick(bunny, isGolden) {
         if (currentBunny === bunny) {
             currentBunny = null;
         }
-        // Spawn new bunny immediately
+        // Schedule next bunny with slow delay
         if (gameActive) {
-            spawnBunny();
+            scheduleNextBunny();
         }
     }, 300);
 }
