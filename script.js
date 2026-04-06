@@ -13,6 +13,7 @@ let bunnySpawnTime = 0;
 const BUNNY_SIZE = 120;
 const GAME_DURATION = 40;
 const BUNNY_PADDING = 12;
+const MISSED_BUNNY_DELAY = 220;
 const popSound = new Audio('pop.mp3');
 
 // DOM elements
@@ -162,10 +163,24 @@ function spawnBunny() {
         return;
     }
     
-    // Remove old bunny if exists
+    // If previous bunny was missed, leave it visible briefly before replacing it
     if (currentBunny) {
-        currentBunny.remove();
-        currentBunny = null;
+        const missedBunny = currentBunny;
+
+        spawnTimeout = setTimeout(() => {
+            spawnTimeout = null;
+
+            if (missedBunny === currentBunny) {
+                missedBunny.remove();
+                currentBunny = null;
+            }
+
+            if (gameActive) {
+                spawnBunny();
+            }
+        }, MISSED_BUNNY_DELAY);
+
+        return;
     }
     
     // Increment spawn counter
