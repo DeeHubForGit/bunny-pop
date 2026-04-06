@@ -74,6 +74,7 @@ body {
     background: linear-gradient(to right, #ffc0cb, #ff69b4);
     outline: none;
     -webkit-appearance: none;
+    appearance: none;
     margin-bottom: 5px;
 }
 
@@ -190,7 +191,8 @@ body {
     font-size: 80px;
     cursor: pointer;
     user-select: none;
-    transition: transform 0.2s;
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.3s ease-in-out;
     animation: appear 0.3s ease-out;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -215,6 +217,10 @@ body {
         transform: scale(1);
         opacity: 1;
     }
+}
+
+.game-container .bunny.active {
+    opacity: 1;
 }
 
 @keyframes pop {

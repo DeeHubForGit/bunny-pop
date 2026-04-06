@@ -12,6 +12,7 @@ let bunnySpawnTime = 0;
 // Constants
 const BUNNY_SIZE = 120;
 const GAME_DURATION = 40;
+const BUNNY_PADDING = 12;
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
@@ -77,7 +78,10 @@ function getSpawnDelayRange() {
 function startGame() {
     // Clear any existing intervals and timeouts
     if (timerInterval) clearInterval(timerInterval);
-    if (spawnTimeout) clearTimeout(spawnTimeout);
+    if (spawnTimeout) {
+        clearTimeout(spawnTimeout);
+        spawnTimeout = null;
+    }
     
     // Remove any existing bunny
     if (currentBunny) {
@@ -133,15 +137,15 @@ function updateTimer() {
 
 function scheduleNextBunny() {
     if (!gameActive) return;
-    
-    // Clear any existing timeout to prevent overlaps
-    if (spawnTimeout) {
-        clearTimeout(spawnTimeout);
-        spawnTimeout = null;
-    }
-    
+
+    // Prevent multiple spawn timers from stacking
+    if (spawnTimeout !== null) return;
+
     const delayRange = getSpawnDelayRange();
+
+    // Use a proper random value between min and max
     const spawnDelay = delayRange.min + Math.random() * (delayRange.max - delayRange.min);
+
     spawnTimeout = setTimeout(() => {
         spawnTimeout = null;
         spawnBunny();
@@ -179,11 +183,16 @@ function spawnBunny() {
     const containerWidth = gameContainer.offsetWidth;
     const containerHeight = gameContainer.offsetHeight;
     
-    const maxX = containerWidth - BUNNY_SIZE;
-    const maxY = containerHeight - BUNNY_SIZE;
+    const bunnyWidth = BUNNY_SIZE;
+    const bunnyHeight = BUNNY_SIZE;
     
-    const randomX = Math.random() * maxX;
-    const randomY = Math.random() * maxY;
+    const minX = BUNNY_PADDING;
+    const minY = BUNNY_PADDING;
+    const maxX = containerWidth - bunnyWidth - BUNNY_PADDING;
+    const maxY = containerHeight - bunnyHeight - BUNNY_PADDING;
+    
+    const randomX = minX + Math.random() * Math.max(0, maxX - minX);
+    const randomY = minY + Math.random() * Math.max(0, maxY - minY);
     
     bunny.style.left = randomX + 'px';
     bunny.style.top = randomY + 'px';
@@ -198,10 +207,13 @@ function spawnBunny() {
     gameContainer.appendChild(bunny);
     currentBunny = bunny;
     
+    // Add active class for fade-in effect
+    bunny.classList.add('active');
+    
     // Record spawn time for minimum visibility protection
     bunnySpawnTime = Date.now();
     
-    // Schedule next spawn (slower pace for tablet play)
+    // Schedule next spawn based on selected speed
     scheduleNextBunny();
 }
 
@@ -268,7 +280,10 @@ function endGame() {
     
     // Clear intervals and timeouts
     if (timerInterval) clearInterval(timerInterval);
-    if (spawnTimeout) clearTimeout(spawnTimeout);
+    if (spawnTimeout) {
+        clearTimeout(spawnTimeout);
+        spawnTimeout = null;
+    }
     
     // Remove current bunny
     if (currentBunny) {
