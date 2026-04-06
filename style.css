@@ -314,6 +314,14 @@ body {
     display: none !important;
 }
 
+#copyright {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 12px;
+    color: #ff4fa3;
+    opacity: 0.8;
+}
+
 /* Mobile Responsive Styles */
 @media (max-width: 480px) {
     body {
