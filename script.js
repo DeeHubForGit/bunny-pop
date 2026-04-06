@@ -13,6 +13,7 @@ let bunnySpawnTime = 0;
 const BUNNY_SIZE = 120;
 const GAME_DURATION = 40;
 const BUNNY_PADDING = 12;
+const popSound = new Audio('pop.mp3');
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
@@ -234,6 +235,10 @@ function handleBunnyClick(bunny, isGolden) {
     const points = isGolden ? 5 : 1;
     score += points;
     scoreDisplay.textContent = score;
+    
+    // Play pop sound
+    popSound.currentTime = 0;
+    popSound.play();
     
     // Show pop animation and text
     showPopEffect(bunny, points);
