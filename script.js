@@ -110,7 +110,6 @@ function startGame() {
     
     // Hide/show elements
     startBtn.classList.add('hidden');
-    playAgainBtn.classList.add('hidden');
     gameOver.classList.add('hidden');
     
     // Disable speed slider during gameplay
@@ -294,8 +293,7 @@ function endGame() {
     // Re-enable speed slider
     speedSlider.disabled = false;
     
-    // Show Play Again button in center of game area
-    playAgainBtn.classList.remove('hidden');
-    
+    // Show game over overlay
+    startBtn.classList.add('hidden');
     gameOver.classList.remove('hidden');
 }

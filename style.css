@@ -167,6 +167,10 @@ body {
     transform: translate(-50%, calc(-50% - 1px));
 }
 
+.play-btn {
+    margin-top: 20px;
+}
+
 .play-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 25px rgba(255, 105, 180, 0.6);
@@ -272,11 +276,18 @@ body {
 }
 
 .game-over {
-    background: white;
+    position: absolute;
+    inset: 16px;
+    background: rgba(255, 255, 255, 0.96);
     padding: 30px;
     border-radius: 20px;
-    margin-top: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 100;
 }
 
 .game-over h2 {
@@ -300,5 +311,83 @@ body {
 }
 
 .hidden {
-    display: none;
+    display: none !important;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+    
+    .title {
+        font-size: 2.2rem;
+        line-height: 1.1;
+        margin-bottom: 15px;
+    }
+    
+    .info-bar {
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .score-display,
+    .timer-display {
+        padding: 10px 20px;
+        font-size: 1.1rem;
+    }
+    
+    .speed-control {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .speed-label {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+    
+    .speed-labels {
+        font-size: 0.75rem;
+    }
+    
+    .speed-text {
+        font-size: 0.95rem;
+    }
+    
+    .game-container {
+        height: 320px;
+    }
+    
+    .start-btn {
+        padding: 15px 30px;
+        font-size: 1.2rem;
+    }
+    
+    .play-btn {
+        padding: 12px 28px;
+        font-size: 1.1rem;
+        margin-top: 16px;
+    }
+    
+    .game-over {
+        padding: 20px;
+        inset: 12px;
+    }
+    
+    .game-over h2 {
+        font-size: 1.8rem;
+        margin-bottom: 12px;
+    }
+    
+    .final-score {
+        font-size: 1.4rem;
+        margin-bottom: 8px;
+    }
+    
+    .message {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        line-height: 1.3;
+    }
 }
