@@ -199,8 +199,8 @@ function spawnBunny() {
     const containerWidth = gameContainer.offsetWidth;
     const containerHeight = gameContainer.offsetHeight;
     
-    const bunnyWidth = BUNNY_SIZE;
-    const bunnyHeight = BUNNY_SIZE;
+    const bunnyWidth = isGolden ? BUNNY_SIZE * 1.35 : BUNNY_SIZE;
+    const bunnyHeight = isGolden ? BUNNY_SIZE * 1.35 : BUNNY_SIZE;
     
     const minX = BUNNY_PADDING;
     const minY = BUNNY_PADDING;
