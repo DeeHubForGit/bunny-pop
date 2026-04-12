@@ -22,7 +22,13 @@ const RECORD_SCORES_KEY = 'bunnyPopRecordScoresEnabled';
 const DURATION_KEY = 'bunnyPopGameDuration';
 const MAX_SCORES = 50;
 const GOLD_SPEED_MULTIPLIER = 2;
-const popSound = new Audio('pop.mp3');
+const popSound = new Audio('sounds/pop.mp3');
+const goldSparkleSound = new Audio('sounds/sparkle.mp3');
+const goldPopSound = new Audio('sounds/yay.mp3');
+
+goldSparkleSound.loop = true;
+goldSparkleSound.volume = 0.45;
+goldPopSound.volume = 0.8;
 
 // DOM elements
 const startBtn = document.getElementById('start-btn');
@@ -444,6 +450,10 @@ function spawnGoldenBunny() {
     // Add active class for fade-in effect
     goldenBunny.classList.add('active');
     
+    // Play sparkle sound
+    goldSparkleSound.currentTime = 0;
+    goldSparkleSound.play().catch(() => {});
+    
     // Remove golden bunny after animation completes
     goldenBunnyTimeout = setTimeout(() => {
         removeGoldenBunny();
@@ -484,7 +494,14 @@ function handleGoldenBunnyClick(goldenBunny) {
     score += points;
     scoreDisplay.textContent = score;
     
-    // Play pop sound
+    // Stop sparkle and play pop sound
+    goldSparkleSound.pause();
+    goldSparkleSound.currentTime = 0;
+    
+    goldPopSound.currentTime = 0;
+    goldPopSound.play().catch(() => {});
+    
+    // Play regular pop sound
     popSound.currentTime = 0;
     popSound.play();
     
@@ -502,6 +519,10 @@ function handleGoldenBunnyClick(goldenBunny) {
 }
 
 function removeGoldenBunny() {
+    // Stop sparkle sound
+    goldSparkleSound.pause();
+    goldSparkleSound.currentTime = 0;
+    
     if (currentGoldenBunny) {
         currentGoldenBunny.remove();
         currentGoldenBunny = null;
