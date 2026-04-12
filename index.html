@@ -12,10 +12,22 @@
         
         <div class="info-bar">
             <div class="score-display">
-                Score: <span id="score">0</span>
+                <div class="score-content">
+                    Score: <span id="score">0</span>
+                </div>
+                <button id="view-scores-btn" class="view-scores-btn">Scores</button>
             </div>
             <div class="timer-display">
-                Time: <span id="timer">40</span>s
+                <div class="timer-top-row">
+                    <span class="timer-label">Time:</span>
+                    <span id="timer-countdown" class="timer-countdown">0s</span>
+                </div>
+                <select id="time-selector" class="time-selector">
+                    <option value="20">20s</option>
+                    <option value="40" selected>40s</option>
+                    <option value="60">60s</option>
+                    <option value="120">120s</option>
+                </select>
             </div>
         </div>
 
@@ -34,6 +46,7 @@
             <div id="game-over" class="game-over hidden">
                 <h2>Game Over!</h2>
                 <p class="final-score">Score: <span id="final-score">0</span></p>
+                <p class="final-duration">Time: <span id="final-duration">40</span>s</p>
                 <p id="message" class="message"></p>
                 <button id="play-again-btn" class="play-btn">Play Again</button>
             </div>
@@ -42,6 +55,18 @@
         <div id="copyright">
             Made by Dee for Bonnie 💖<br> 
             © 2026 Dee Bath
+        </div>
+    </div>
+
+    <!-- Score Modal -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2 id="modal-title" class="modal-title"></h2>
+                <button id="modal-close-btn" class="modal-close-btn">×</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+            <div id="modal-actions" class="modal-actions"></div>
         </div>
     </div>
 

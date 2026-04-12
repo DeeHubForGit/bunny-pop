@@ -1,19 +1,27 @@
 // Game state
 let score = 0;
 let timeLeft = 40;
+let gameDuration = 40;
 let gameActive = false;
 let timerInterval = null;
 let spawnTimeout = null;
 let currentBunny = null;
+let currentGoldenBunny = null;
+let goldenBunnyTimeout = null;
 let spawnCount = 0;
 let goldenSpawns = [];
 let bunnySpawnTime = 0;
+let nextGoldenBunnyTime = 0;
 
 // Constants
 const BUNNY_SIZE = 120;
-const GAME_DURATION = 40;
 const BUNNY_PADDING = 12;
 const MISSED_BUNNY_DELAY = 220;
+const SCORES_KEY = 'bunnyPopHighScores';
+const RECORD_SCORES_KEY = 'bunnyPopRecordScoresEnabled';
+const DURATION_KEY = 'bunnyPopGameDuration';
+const MAX_SCORES = 50;
+const GOLD_SPEED_MULTIPLIER = 2;
 const popSound = new Audio('pop.mp3');
 
 // DOM elements
@@ -22,11 +30,19 @@ const playAgainBtn = document.getElementById('play-again-btn');
 const gameContainer = document.getElementById('game-container');
 const gameOver = document.getElementById('game-over');
 const scoreDisplay = document.getElementById('score');
-const timerDisplay = document.getElementById('timer');
+const timerCountdown = document.getElementById('timer-countdown');
+const timeSelector = document.getElementById('time-selector');
 const finalScoreDisplay = document.getElementById('final-score');
+const finalDurationDisplay = document.getElementById('final-duration');
 const messageDisplay = document.getElementById('message');
 const speedSlider = document.getElementById('speed-slider');
 const speedText = document.getElementById('speed-text');
+const viewScoresBtn = document.getElementById('view-scores-btn');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalBody = document.getElementById('modal-body');
+const modalActions = document.getElementById('modal-actions');
+const modalCloseBtn = document.getElementById('modal-close-btn');
 
 // Pop texts for fun
 const popTexts = ['Boing!', 'Poof!', 'Bunished!', 'Pop!', 'Yay!'];
@@ -43,10 +59,20 @@ const speedConfig = {
 // Initialize speed setting
 loadSavedSpeed();
 
+// Initialize game duration
+loadSavedGameDuration();
+timerCountdown.textContent = '0s';
+
+// Initialize record scores setting
+loadRecordScoresSetting();
+
 // Event listeners
 startBtn.addEventListener('click', startGame);
 playAgainBtn.addEventListener('click', startGame);
 speedSlider.addEventListener('input', handleSpeedChange);
+timeSelector.addEventListener('change', handleTimeSelectorChange);
+viewScoresBtn.addEventListener('click', showScoresModal);
+modalCloseBtn.addEventListener('click', closeModal);
 
 // Speed control functions
 function loadSavedSpeed() {
@@ -77,6 +103,52 @@ function getSpawnDelayRange() {
     return speedConfig[speed];
 }
 
+// Record scores control functions
+function loadRecordScoresSetting() {
+    const saved = localStorage.getItem(RECORD_SCORES_KEY);
+    return saved === 'true';
+}
+
+function saveRecordScoresSetting(enabled) {
+    localStorage.setItem(RECORD_SCORES_KEY, enabled.toString());
+}
+
+function isRecordScoresEnabled() {
+    return loadRecordScoresSetting();
+}
+
+// Time selector functions
+function loadSavedGameDuration() {
+    const saved = localStorage.getItem(DURATION_KEY);
+    const duration = saved ? parseInt(saved) : 40;
+    timeSelector.value = duration;
+    gameDuration = duration;
+}
+
+function handleTimeSelectorChange() {
+    if (gameActive) return;
+    
+    const duration = parseInt(timeSelector.value);
+    saveGameDuration(duration);
+    gameDuration = duration;
+}
+
+function saveGameDuration(duration) {
+    localStorage.setItem(DURATION_KEY, duration.toString());
+}
+
+function getSelectedGameDuration() {
+    return parseInt(timeSelector.value);
+}
+
+function setTimeSelectorEnabled(enabled) {
+    timeSelector.disabled = !enabled;
+    if (enabled) {
+        // After game ends, reset countdown to 0s
+        timerCountdown.textContent = '0s';
+    }
+}
+
 function startGame() {
     // Clear any existing intervals and timeouts
     if (timerInterval) clearInterval(timerInterval);
@@ -84,11 +156,21 @@ function startGame() {
         clearTimeout(spawnTimeout);
         spawnTimeout = null;
     }
+    if (goldenBunnyTimeout) {
+        clearTimeout(goldenBunnyTimeout);
+        goldenBunnyTimeout = null;
+    }
     
     // Remove any existing bunny
     if (currentBunny) {
         currentBunny.remove();
         currentBunny = null;
+    }
+    
+    // Remove any existing golden bunny
+    if (currentGoldenBunny) {
+        currentGoldenBunny.remove();
+        currentGoldenBunny = null;
     }
     
     // Clear any leftover transient effects
@@ -98,28 +180,30 @@ function startGame() {
     const scorePops = document.querySelectorAll('.score-pop');
     scorePops.forEach(el => el.remove());
     
+    // Get selected duration
+    gameDuration = getSelectedGameDuration();
+    
     // Reset game state
     score = 0;
-    timeLeft = GAME_DURATION;
+    timeLeft = gameDuration;
     gameActive = true;
     spawnCount = 0;
     
-    // Plan guaranteed golden bunnies for this round
-    // Estimate ~13 spawns in 40 seconds, guarantee at least 2 golden
-    const goldenSpawn1 = 2 + Math.floor(Math.random() * 4); // spawn 2-5
-    const goldenSpawn2 = 7 + Math.floor(Math.random() * 4); // spawn 7-10
-    goldenSpawns = [goldenSpawn1, goldenSpawn2];
+    // Schedule golden bunny appearances
+    // First one after 3-7 seconds, then every 8-15 seconds
+    nextGoldenBunnyTime = Date.now() + 3000 + Math.random() * 4000;
     
     // Update displays
     scoreDisplay.textContent = score;
-    timerDisplay.textContent = timeLeft;
+    timerCountdown.textContent = timeLeft + 's';
     
     // Hide/show elements
     startBtn.classList.add('hidden');
     gameOver.classList.add('hidden');
     
-    // Disable speed slider during gameplay
+    // Disable controls during gameplay
     speedSlider.disabled = true;
+    setTimeSelectorEnabled(false);
     
     // Start timer
     timerInterval = setInterval(updateTimer, 1000);
@@ -130,7 +214,14 @@ function startGame() {
 
 function updateTimer() {
     timeLeft = Math.max(0, timeLeft - 1);
-    timerDisplay.textContent = timeLeft;
+    timerCountdown.textContent = timeLeft + 's';
+    
+    // Check if it's time for a golden bunny
+    if (Date.now() >= nextGoldenBunnyTime && !currentGoldenBunny) {
+        spawnGoldenBunny();
+        // Schedule next golden bunny
+        nextGoldenBunnyTime = Date.now() + 8000 + Math.random() * 7000;
+    }
     
     if (timeLeft <= 0) {
         endGame();
@@ -186,27 +277,24 @@ function spawnBunny() {
     // Increment spawn counter
     spawnCount++;
     
-    // Determine if golden bunny (guaranteed at planned spawns)
-    const isGolden = goldenSpawns.includes(spawnCount);
-    
-    // Create bunny
+    // Create normal bunny
     const bunny = document.createElement('div');
     bunny.className = 'bunny';
-    bunny.textContent = isGolden ? '✨🐰' : '🐰';
-    if (isGolden) bunny.classList.add('golden');
+    bunny.textContent = '🐰';
     
     // Random position (ensure bunny stays inside container)
     const containerWidth = gameContainer.offsetWidth;
     const containerHeight = gameContainer.offsetHeight;
     
-    const bunnyWidth = isGolden ? BUNNY_SIZE * 1.35 : BUNNY_SIZE;
-    const bunnyHeight = isGolden ? BUNNY_SIZE * 1.35 : BUNNY_SIZE;
+    const bunnyWidth = BUNNY_SIZE;
+    const bunnyHeight = BUNNY_SIZE;
     
     const minX = BUNNY_PADDING;
     const minY = BUNNY_PADDING;
     const maxX = containerWidth - bunnyWidth - BUNNY_PADDING;
     const maxY = containerHeight - bunnyHeight - BUNNY_PADDING;
     
+    // Normal bunny at random position
     const randomX = minX + Math.random() * Math.max(0, maxX - minX);
     const randomY = minY + Math.random() * Math.max(0, maxY - minY);
     
@@ -216,7 +304,7 @@ function spawnBunny() {
     // Add touch-friendly input handler
     bunny.addEventListener('pointerdown', (event) => {
         event.preventDefault();
-        handleBunnyClick(bunny, isGolden);
+        handleBunnyClick(bunny, false);
     });
     
     // Add to container
@@ -295,6 +383,134 @@ function showPopEffect(bunny, points) {
     }
 }
 
+function spawnGoldenBunny() {
+    if (!gameActive) return;
+    
+    // Don't spawn if golden bunny already exists
+    if (currentGoldenBunny) return;
+    
+    // Get container dimensions
+    const containerWidth = gameContainer.offsetWidth;
+    const containerHeight = gameContainer.offsetHeight;
+    
+    const bunnyWidth = BUNNY_SIZE;
+    const bunnyHeight = BUNNY_SIZE;
+    
+    const minX = BUNNY_PADDING;
+    const minY = BUNNY_PADDING;
+    const maxX = containerWidth - bunnyWidth - BUNNY_PADDING;
+    const maxY = containerHeight - bunnyHeight - BUNNY_PADDING;
+    
+    // Create golden bunny
+    const goldenBunny = document.createElement('div');
+    goldenBunny.className = 'bunny golden moving';
+    goldenBunny.textContent = '🐰';
+    
+    // Golden bunny starts on the right side
+    const startX = maxX;
+    const startY = minY + Math.random() * Math.max(0, maxY - minY);
+    const endX = minX - bunnyWidth; // Move completely off screen to the left
+    
+    goldenBunny.style.left = startX + 'px';
+    goldenBunny.style.top = startY + 'px';
+    
+    // Calculate speed based on current speed setting
+    const speedLevel = parseInt(speedSlider.value);
+    const delayRange = speedConfig[speedLevel];
+    // Base duration derived from speed - faster game = faster golden bunny
+    const baseDuration = ((delayRange.min + delayRange.max) / 2) / 200; // Convert to reasonable seconds
+    const goldDuration = Math.max(2, baseDuration / GOLD_SPEED_MULTIPLIER);
+    
+    // Set CSS variables for animation
+    goldenBunny.style.setProperty('--start-left', startX + 'px');
+    goldenBunny.style.setProperty('--end-left', endX + 'px');
+    goldenBunny.style.setProperty('--gold-duration', goldDuration + 's');
+    
+    // Apply horizontal movement animation via inline style
+    // This keeps it separate from the transform-based wobble animation
+    goldenBunny.style.animation = `golden-move ${goldDuration}s linear forwards, golden-wobble 1.5s ease-in-out infinite`;
+    
+    // Add click handler
+    goldenBunny.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        handleGoldenBunnyClick(goldenBunny);
+    });
+    
+    // Add to container
+    gameContainer.appendChild(goldenBunny);
+    currentGoldenBunny = goldenBunny;
+    
+    // Add active class for fade-in effect
+    goldenBunny.classList.add('active');
+    
+    // Remove golden bunny after animation completes
+    goldenBunnyTimeout = setTimeout(() => {
+        removeGoldenBunny();
+    }, goldDuration * 1000);
+}
+
+function handleGoldenBunnyClick(goldenBunny) {
+    if (!gameActive) return;
+    
+    // Prevent double-clicking during animation
+    if (goldenBunny.dataset.popping === 'true') return;
+    goldenBunny.dataset.popping = 'true';
+    
+    // Clear the auto-remove timeout
+    if (goldenBunnyTimeout) {
+        clearTimeout(goldenBunnyTimeout);
+        goldenBunnyTimeout = null;
+    }
+    
+    // Capture current visual position before removing animation
+    const rect = goldenBunny.getBoundingClientRect();
+    const containerRect = gameContainer.getBoundingClientRect();
+    const currentLeft = rect.left - containerRect.left;
+    const currentTop = rect.top - containerRect.top;
+    
+    // Freeze at current position
+    goldenBunny.style.left = currentLeft + 'px';
+    goldenBunny.style.top = currentTop + 'px';
+    
+    // Clear movement animations
+    goldenBunny.style.animation = 'none';
+    
+    // Force a reflow to ensure the position is applied
+    goldenBunny.offsetHeight;
+    
+    // Award bonus points
+    const points = 5;
+    score += points;
+    scoreDisplay.textContent = score;
+    
+    // Play pop sound
+    popSound.currentTime = 0;
+    popSound.play();
+    
+    // Show pop animation and text
+    showPopEffect(goldenBunny, points);
+    
+    // Remove golden bunny with pop animation
+    goldenBunny.style.animation = 'pop 0.3s ease-out';
+    setTimeout(() => {
+        if (currentGoldenBunny === goldenBunny) {
+            goldenBunny.remove();
+            currentGoldenBunny = null;
+        }
+    }, 300);
+}
+
+function removeGoldenBunny() {
+    if (currentGoldenBunny) {
+        currentGoldenBunny.remove();
+        currentGoldenBunny = null;
+    }
+    if (goldenBunnyTimeout) {
+        clearTimeout(goldenBunnyTimeout);
+        goldenBunnyTimeout = null;
+    }
+}
+
 function endGame() {
     gameActive = false;
     
@@ -311,8 +527,16 @@ function endGame() {
         currentBunny = null;
     }
     
+    // Remove golden bunny
+    removeGoldenBunny();
+    
+    // Remove ALL remaining bunny elements (catches any delayed spawns or leftovers)
+    const allBunnies = gameContainer.querySelectorAll('.bunny, .golden');
+    allBunnies.forEach(bunny => bunny.remove());
+    
     // Show game over screen
     finalScoreDisplay.textContent = score;
+    finalDurationDisplay.textContent = gameDuration;
     
     // Determine message based on score
     let message;
@@ -325,10 +549,530 @@ function endGame() {
     }
     messageDisplay.textContent = message;
     
-    // Re-enable speed slider
+    // Re-enable controls
     speedSlider.disabled = false;
+    setTimeSelectorEnabled(true);
     
     // Show game over overlay
     startBtn.classList.add('hidden');
     gameOver.classList.remove('hidden');
+    
+    // Check if record scores is enabled
+    if (isRecordScoresEnabled()) {
+        // Show record score modal after a brief delay
+        setTimeout(() => {
+            showRecordScoreModal(score, gameDuration);
+        }, 500);
+    }
+}
+
+// Score Functions
+function loadScores() {
+    try {
+        const data = localStorage.getItem(SCORES_KEY);
+        if (!data) return [];
+        const scores = JSON.parse(data);
+        return Array.isArray(scores) ? scores : [];
+    } catch (error) {
+        console.error('Error loading scores:', error);
+        return [];
+    }
+}
+
+function saveScores(scores) {
+    try {
+        localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+    } catch (error) {
+        console.error('Error saving scores:', error);
+    }
+}
+
+function getSortedScores() {
+    const scores = loadScores();
+    return scores.sort((a, b) => b.score - a.score);
+}
+
+function getNextDefaultPlayerName(scores) {
+    // Find all existing Player X names
+    const playerNumbers = scores
+        .map(s => s.name)
+        .filter(name => /^Player \d+$/.test(name))
+        .map(name => parseInt(name.replace('Player ', '')))
+        .filter(num => !isNaN(num));
+    
+    // Find the highest number
+    const maxNumber = playerNumbers.length > 0 ? Math.max(...playerNumbers) : 0;
+    
+    // Return next number
+    return `Player ${maxNumber + 1}`;
+}
+
+function getTrophyForRank(index) {
+    const trophies = {
+        0: '🥇',
+        1: '🥈',
+        2: '🥉'
+    };
+    return trophies[index] || '';
+}
+
+function normalizePlayerName(name) {
+    if (!name) return '';
+    
+    // Trim and collapse multiple spaces to single space
+    return name.trim().replace(/\s+/g, ' ');
+}
+
+function isValidPlayerName(name) {
+    if (!name) return false;
+    
+    // Must contain at least one letter or number
+    if (!/[a-zA-Z0-9]/.test(name)) return false;
+    
+    // Allow letters, numbers, spaces, apostrophes, hyphens
+    if (!/^[a-zA-Z0-9\s'\-]+$/.test(name)) return false;
+    
+    return true;
+}
+
+function clearScores() {
+    try {
+        localStorage.removeItem(SCORES_KEY);
+    } catch (error) {
+        console.error('Error clearing scores:', error);
+    }
+}
+
+function recordScore(name, newScore, durationSeconds) {
+    const scores = loadScores();
+    
+    // Normalize and validate name
+    let playerName = normalizePlayerName(name);
+    if (!playerName) {
+        playerName = getNextDefaultPlayerName(scores);
+    }
+    
+    // Limit name length
+    if (playerName.length > 15) {
+        playerName = playerName.substring(0, 15);
+    }
+    
+    // Create new score entry
+    const newEntry = {
+        name: playerName,
+        score: newScore,
+        durationSeconds: durationSeconds,
+        recordedAt: new Date().toISOString()
+    };
+    
+    // Add to scores
+    scores.push(newEntry);
+    
+    // Sort and keep only top scores
+    const sortedScores = scores.sort((a, b) => b.score - a.score);
+    const topScores = sortedScores.slice(0, MAX_SCORES);
+    
+    // Save
+    saveScores(topScores);
+    
+    return newEntry;
+}
+
+// Modal Functions
+function openModal(title, bodyContent, actions, allowDismiss = true) {
+    // Remove any existing record control from previous modals
+    const existingRecordControl = modalOverlay.querySelector('.modal-record-control');
+    if (existingRecordControl) {
+        existingRecordControl.remove();
+    }
+    
+    modalTitle.innerHTML = '';
+    
+    // Add sparkle to Scores title
+    if (title === 'Scores') {
+        const sparkle = document.createElement('span');
+        sparkle.className = 'modal-title-sparkle';
+        sparkle.textContent = '✨';
+        modalTitle.appendChild(sparkle);
+        
+        const titleText = document.createElement('span');
+        titleText.textContent = title;
+        modalTitle.appendChild(titleText);
+    } else {
+        modalTitle.textContent = title;
+    }
+    
+    // Set body content
+    if (typeof bodyContent === 'string') {
+        modalBody.innerHTML = bodyContent;
+    } else if (bodyContent instanceof HTMLElement) {
+        modalBody.innerHTML = '';
+        modalBody.appendChild(bodyContent);
+    }
+    
+    // Set actions
+    modalActions.innerHTML = '';
+    if (actions && actions.length > 0) {
+        // Add class if there are multiple action types
+        if (actions.some(a => a.danger)) {
+            modalActions.classList.add('has-secondary');
+        } else {
+            modalActions.classList.remove('has-secondary');
+        }
+        
+        actions.forEach(action => {
+            const btn = document.createElement('button');
+            let btnClass = 'modal-btn';
+            if (action.primary) {
+                btnClass += ' modal-btn-primary';
+            } else if (action.danger) {
+                btnClass += ' modal-btn-danger';
+            } else {
+                btnClass += ' modal-btn-secondary';
+            }
+            btn.className = btnClass;
+            btn.textContent = action.label;
+            btn.addEventListener('click', action.onClick);
+            modalActions.appendChild(btn);
+        });
+    }
+    
+    // Show modal
+    modalOverlay.classList.remove('hidden');
+    
+    // Handle dismiss behavior
+    if (allowDismiss) {
+        modalOverlay.onclick = (e) => {
+            if (e.target === modalOverlay) {
+                closeModal();
+            }
+        };
+    } else {
+        modalOverlay.onclick = null;
+    }
+}
+
+function closeModal() {
+    // Remove any existing record control
+    const existingRecordControl = modalOverlay.querySelector('.modal-record-control');
+    if (existingRecordControl) {
+        existingRecordControl.remove();
+    }
+    
+    modalOverlay.classList.add('hidden');
+    modalBody.innerHTML = '';
+    modalActions.innerHTML = '';
+    modalOverlay.onclick = null;
+}
+
+function showScoresModal() {
+    const scores = getSortedScores();
+    
+    // Create container for body content
+    const container = document.createElement('div');
+    
+    let bodyContent;
+    
+    if (scores.length === 0) {
+        // Empty state
+        bodyContent = document.createElement('div');
+        bodyContent.className = 'empty-scores';
+        bodyContent.innerHTML = `
+            <div class="empty-scores-icon">🏆</div>
+            <div>No scores recorded yet</div>
+        `;
+        container.appendChild(bodyContent);
+    } else {
+        // Create scores list
+        const list = document.createElement('ol');
+        list.className = 'scores-list';
+        
+        scores.forEach((entry, index) => {
+            const item = document.createElement('li');
+            item.className = 'score-item';
+            
+            // Add rank class for top 3
+            if (index < 3) {
+                item.classList.add(`rank-${index + 1}`);
+            }
+            
+            const rank = document.createElement('span');
+            rank.className = 'score-rank';
+            
+            // Always add trophy span for consistent layout
+            const trophySpan = document.createElement('span');
+            trophySpan.className = 'score-trophy';
+            
+            const trophy = getTrophyForRank(index);
+            if (trophy) {
+                trophySpan.textContent = trophy;
+            } else {
+                trophySpan.classList.add('empty');
+            }
+            rank.appendChild(trophySpan);
+            
+            const rankNum = document.createElement('span');
+            rankNum.textContent = `${index + 1}.`;
+            rank.appendChild(rankNum);
+            
+            const name = document.createElement('span');
+            name.className = 'score-name';
+            name.textContent = entry.name;
+            
+            const scoreValue = document.createElement('span');
+            scoreValue.className = 'score-value';
+            scoreValue.textContent = entry.score;
+            
+            item.appendChild(rank);
+            item.appendChild(name);
+            item.appendChild(scoreValue);
+            
+            // Add duration if available
+            if (entry.durationSeconds) {
+                const duration = document.createElement('span');
+                duration.className = 'score-duration';
+                duration.textContent = `${entry.durationSeconds}s`;
+                item.appendChild(duration);
+            }
+            
+            // Add date if available (hidden on mobile via CSS)
+            if (entry.recordedAt) {
+                const date = document.createElement('span');
+                date.className = 'score-date';
+                const dateObj = new Date(entry.recordedAt);
+                date.textContent = dateObj.toLocaleDateString();
+                item.appendChild(date);
+            }
+            
+            list.appendChild(item);
+        });
+        
+        container.appendChild(list);
+    }
+    
+    // Create record control section
+    const recordControl = document.createElement('div');
+    recordControl.className = 'modal-record-control';
+    
+    const recordLabel = document.createElement('label');
+    recordLabel.className = 'record-checkbox-label';
+    
+    const recordCheckbox = document.createElement('input');
+    recordCheckbox.type = 'checkbox';
+    recordCheckbox.className = 'record-checkbox';
+    recordCheckbox.id = 'modal-record-scores-checkbox';
+    recordCheckbox.checked = isRecordScoresEnabled();
+    recordCheckbox.addEventListener('change', (e) => {
+        saveRecordScoresSetting(e.target.checked);
+    });
+    
+    const recordCheckmark = document.createElement('span');
+    recordCheckmark.className = 'record-checkmark';
+    
+    const recordLabelText = document.createElement('span');
+    recordLabelText.className = 'record-label-text';
+    recordLabelText.textContent = 'Record scores?';
+    
+    recordLabel.appendChild(recordCheckbox);
+    recordLabel.appendChild(recordCheckmark);
+    recordLabel.appendChild(recordLabelText);
+    recordControl.appendChild(recordLabel);
+    
+    // Insert the second panel section into modal
+    const modalPanel = modalOverlay.querySelector('.modal-panel');
+    const existingRecordControl = modalPanel.querySelector('.modal-record-control');
+    if (existingRecordControl) {
+        existingRecordControl.remove();
+    }
+    
+    // Create actions array
+    const actions = [];
+    
+    // Add Clear Scores button first if there are scores (left side, secondary/danger)
+    if (scores.length > 0) {
+        // Use shorter text with icon on mobile
+        const clearLabel = window.innerWidth <= 480 ? '❌ Clear' : '❌ Clear';
+        actions.push({
+            label: clearLabel,
+            danger: true,
+            onClick: showClearScoresConfirmModal
+        });
+    }
+    
+    // Add Close button as primary action (right side)
+    actions.push({
+        label: 'Close',
+        primary: true,
+        onClick: closeModal
+    });
+    
+    openModal('Scores', container, actions, true);
+    
+    // Insert record control after modal body
+    modalBody.parentNode.insertBefore(recordControl, modalActions);
+}
+
+function showClearScoresConfirmModal() {
+    const message = document.createElement('div');
+    message.style.textAlign = 'center';
+    message.style.fontSize = '1.2rem';
+    message.style.color = '#ff69b4';
+    message.style.padding = '20px';
+    message.textContent = 'Clear all saved scores?';
+    
+    const actions = [
+        {
+            label: '❌ Clear',
+            danger: true,
+            onClick: () => {
+                clearScores();
+                closeModal();
+                // Show updated scores (empty state)
+                setTimeout(showScoresModal, 100);
+            }
+        },
+        {
+            label: 'Cancel',
+            primary: true,
+            onClick: () => {
+                closeModal();
+                // Re-open scores modal
+                setTimeout(showScoresModal, 100);
+            }
+        }
+    ];
+    
+    openModal('Confirm Clear', message, actions, false);
+}
+
+function showRecordScoreModal(newScore, durationSeconds) {
+    // Create record form
+    const form = document.createElement('div');
+    form.className = 'record-form';
+    
+    const message = document.createElement('p');
+    message.className = 'record-message';
+    message.textContent = 'Do you want to record your score?';
+    
+    const scoreDisplay = document.createElement('div');
+    scoreDisplay.className = 'record-score-display';
+    scoreDisplay.textContent = `Score: ${newScore} • Time: ${durationSeconds}s`;
+    
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'input-group';
+    
+    const label = document.createElement('label');
+    label.className = 'input-label';
+    label.textContent = 'Player';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'player-name-input';
+    input.placeholder = 'Enter name or leave blank';
+    input.maxLength = 15;
+    
+    const errorMsg = document.createElement('span');
+    errorMsg.className = 'input-error';
+    
+    inputGroup.appendChild(label);
+    inputGroup.appendChild(input);
+    inputGroup.appendChild(errorMsg);
+    
+    form.appendChild(message);
+    form.appendChild(scoreDisplay);
+    form.appendChild(inputGroup);
+    
+    // Helper to show error
+    const showError = (msg) => {
+        errorMsg.textContent = msg;
+        errorMsg.classList.add('visible');
+        input.classList.add('error');
+    };
+    
+    // Helper to clear error
+    const clearError = () => {
+        errorMsg.textContent = '';
+        errorMsg.classList.remove('visible');
+        input.classList.remove('error');
+    };
+    
+    // Clear error on input
+    input.addEventListener('input', clearError);
+    
+    // Handle form submission
+    const handleSubmit = () => {
+        clearError();
+        
+        const rawName = input.value;
+        const normalized = normalizePlayerName(rawName);
+        
+        // If blank, allow it (will use default Player X)
+        if (!normalized) {
+            recordScore('', newScore, durationSeconds);
+            closeModal();
+            return;
+        }
+        
+        // Validate non-blank names
+        if (!isValidPlayerName(normalized)) {
+            showError('Please use letters, numbers, spaces, hyphens, or apostrophes only');
+            return;
+        }
+        
+        // If valid, save and continue
+        recordScore(normalized, newScore, durationSeconds);
+        closeModal();
+    };
+    
+    // Handle Enter key
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSubmit();
+        }
+    });
+    
+    const actions = [
+        {
+            label: 'No',
+            primary: false,
+            onClick: () => {
+                closeModal();
+            }
+        },
+        {
+            label: 'Yes',
+            primary: true,
+            onClick: handleSubmit
+        }
+    ];
+    
+    openModal('Record Score', form, actions, false);
+    
+    // Focus input
+    setTimeout(() => input.focus(), 100);
+}
+
+function highlightNewestScore() {
+    // Find the most recently added score and highlight it
+    const scores = getSortedScores();
+    if (scores.length === 0) return;
+    
+    // Find most recent by timestamp
+    let newestIndex = 0;
+    let newestTime = new Date(scores[0].recordedAt);
+    
+    for (let i = 1; i < scores.length; i++) {
+        const time = new Date(scores[i].recordedAt);
+        if (time > newestTime) {
+            newestTime = time;
+            newestIndex = i;
+        }
+    }
+    
+    // Add highlight class
+    const scoreItems = document.querySelectorAll('.score-item');
+    if (scoreItems[newestIndex]) {
+        scoreItems[newestIndex].classList.add('newest');
+    }
 }
