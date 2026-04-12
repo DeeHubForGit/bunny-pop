@@ -561,9 +561,9 @@ function endGame() {
     
     // Check if record scores is enabled
     if (isRecordScoresEnabled()) {
-        // Show record score modal after a brief delay
+        // Show scores modal with pending score after a brief delay
         setTimeout(() => {
-            showRecordScoreModal(score, gameDuration);
+            showScoresModal({ pendingScore: score, pendingDuration: gameDuration });
         }, 500);
     }
 }
@@ -767,9 +767,11 @@ function closeModal() {
     modalOverlay.onclick = null;
 }
 
-function showScoresModal() {
+function showScoresModal(options = {}) {
     // Prevent opening during active gameplay
     if (gameActive) return;
+    
+    const { pendingScore = null, pendingDuration = null } = options;
     
     const scores = getSortedScores();
     
@@ -778,7 +780,7 @@ function showScoresModal() {
     
     let bodyContent;
     
-    if (scores.length === 0) {
+    if (scores.length === 0 && !pendingScore) {
         // Empty state
         bodyContent = document.createElement('div');
         bodyContent.className = 'empty-scores';
@@ -792,67 +794,253 @@ function showScoresModal() {
         const list = document.createElement('ol');
         list.className = 'scores-list';
         
-        scores.forEach((entry, index) => {
+        // Create combined list with pending score if present
+        let displayScores = [...scores];
+        let pendingIndex = -1;
+        
+        if (pendingScore !== null) {
+            // Create temporary pending entry
+            const pendingEntry = {
+                name: '',
+                score: pendingScore,
+                durationSeconds: pendingDuration,
+                isPending: true
+            };
+            
+            // Find correct position for pending score
+            pendingIndex = displayScores.findIndex(s => s.score < pendingScore);
+            if (pendingIndex === -1) {
+                // Pending score is lowest, add at end
+                pendingIndex = displayScores.length;
+            }
+            
+            // Insert pending entry
+            displayScores.splice(pendingIndex, 0, pendingEntry);
+        }
+        
+        displayScores.forEach((entry, index) => {
             const item = document.createElement('li');
             item.className = 'score-item';
             
-            // Add rank class for top 3
-            if (index < 3) {
-                item.classList.add(`rank-${index + 1}`);
-            }
-            
-            const rank = document.createElement('span');
-            rank.className = 'score-rank';
-            
-            // Always add trophy span for consistent layout
-            const trophySpan = document.createElement('span');
-            trophySpan.className = 'score-trophy';
-            
-            const trophy = getTrophyForRank(index);
-            if (trophy) {
-                trophySpan.textContent = trophy;
+            if (entry.isPending) {
+                item.classList.add('pending-score');
+                
+                // Render pending score row with inline input and actions
+                const rank = document.createElement('span');
+                rank.className = 'score-rank';
+                
+                const trophySpan = document.createElement('span');
+                trophySpan.className = 'score-trophy';
+                const trophy = getTrophyForRank(index);
+                if (trophy) {
+                    trophySpan.textContent = trophy;
+                } else {
+                    trophySpan.classList.add('empty');
+                }
+                rank.appendChild(trophySpan);
+                
+                const rankNum = document.createElement('span');
+                rankNum.textContent = `${index + 1}.`;
+                rank.appendChild(rankNum);
+                
+                // Name input
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'pending-score-input';
+                nameInput.placeholder = 'Enter name';
+                nameInput.maxLength = 15;
+                
+                const scoreValue = document.createElement('span');
+                scoreValue.className = 'score-value';
+                scoreValue.textContent = entry.score;
+                
+                item.appendChild(rank);
+                item.appendChild(nameInput);
+                item.appendChild(scoreValue);
+                
+                // Add duration if available
+                if (entry.durationSeconds) {
+                    const duration = document.createElement('span');
+                    duration.className = 'score-duration';
+                    duration.textContent = `${entry.durationSeconds}s`;
+                    item.appendChild(duration);
+                }
+                
+                // Add action buttons
+                const actions = document.createElement('span');
+                actions.className = 'pending-score-actions';
+                
+                const tickBtn = document.createElement('button');
+                tickBtn.className = 'pending-action-btn pending-tick';
+                tickBtn.textContent = '✔';
+                tickBtn.title = 'Save score';
+                
+                const crossBtn = document.createElement('button');
+                crossBtn.className = 'pending-action-btn pending-cross';
+                crossBtn.textContent = '✖';
+                crossBtn.title = 'Cancel';
+                
+                actions.appendChild(tickBtn);
+                actions.appendChild(crossBtn);
+                item.appendChild(actions);
+                
+                // Error message container
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'pending-score-error';
+                item.appendChild(errorMsg);
+                
+                // Tick button handler
+                tickBtn.addEventListener('click', () => {
+                    const rawName = nameInput.value;
+                    const normalized = normalizePlayerName(rawName);
+                    
+                    // Clear previous error
+                    errorMsg.textContent = '';
+                    errorMsg.style.display = 'none';
+                    nameInput.classList.remove('error');
+                    
+                    // Validate non-blank names
+                    if (normalized && !isValidPlayerName(normalized)) {
+                        errorMsg.textContent = 'Letters, numbers, spaces, hyphens, apostrophes only';
+                        errorMsg.style.display = 'block';
+                        nameInput.classList.add('error');
+                        return;
+                    }
+                    
+                    // Save and get the saved entry
+                    const savedEntry = recordScore(normalized || '', pendingScore, pendingDuration);
+                    
+                    // Transform pending row into normal saved row in-place
+                    item.classList.remove('pending-score');
+                    item.classList.add('newest');
+                    
+                    // Remove pending-specific elements
+                    nameInput.remove();
+                    actions.remove();
+                    errorMsg.remove();
+                    
+                    // Create normal name span
+                    const name = document.createElement('span');
+                    name.className = 'score-name';
+                    name.textContent = savedEntry.name;
+                    
+                    // Insert name after rank, before score
+                    item.insertBefore(name, scoreValue);
+                    
+                    // Add date if available
+                    if (savedEntry.recordedAt) {
+                        const date = document.createElement('span');
+                        date.className = 'score-date';
+                        const dateObj = new Date(savedEntry.recordedAt);
+                        date.textContent = dateObj.toLocaleDateString();
+                        
+                        // Find duration element to insert date after it
+                        const duration = item.querySelector('.score-duration');
+                        if (duration) {
+                            duration.after(date);
+                        } else {
+                            item.appendChild(date);
+                        }
+                    }
+                });
+                
+                // Cross button handler
+                crossBtn.addEventListener('click', () => {
+                    // Remove pending row without saving
+                    item.remove();
+                });
+                
+                // Enter key handler
+                nameInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        tickBtn.click();
+                    }
+                });
+                
+                // Focus input after render
+                setTimeout(() => nameInput.focus(), 150);
+                
             } else {
-                trophySpan.classList.add('empty');
-            }
-            rank.appendChild(trophySpan);
-            
-            const rankNum = document.createElement('span');
-            rankNum.textContent = `${index + 1}.`;
-            rank.appendChild(rankNum);
-            
-            const name = document.createElement('span');
-            name.className = 'score-name';
-            name.textContent = entry.name;
-            
-            const scoreValue = document.createElement('span');
-            scoreValue.className = 'score-value';
-            scoreValue.textContent = entry.score;
-            
-            item.appendChild(rank);
-            item.appendChild(name);
-            item.appendChild(scoreValue);
-            
-            // Add duration if available
-            if (entry.durationSeconds) {
-                const duration = document.createElement('span');
-                duration.className = 'score-duration';
-                duration.textContent = `${entry.durationSeconds}s`;
-                item.appendChild(duration);
-            }
-            
-            // Add date if available (hidden on mobile via CSS)
-            if (entry.recordedAt) {
-                const date = document.createElement('span');
-                date.className = 'score-date';
-                const dateObj = new Date(entry.recordedAt);
-                date.textContent = dateObj.toLocaleDateString();
-                item.appendChild(date);
+                // Regular score row (existing logic)
+                // Add rank class for top 3
+                if (index < 3) {
+                    item.classList.add(`rank-${index + 1}`);
+                }
+                
+                const rank = document.createElement('span');
+                rank.className = 'score-rank';
+                
+                const trophySpan = document.createElement('span');
+                trophySpan.className = 'score-trophy';
+                
+                const trophy = getTrophyForRank(index);
+                if (trophy) {
+                    trophySpan.textContent = trophy;
+                } else {
+                    trophySpan.classList.add('empty');
+                }
+                rank.appendChild(trophySpan);
+                
+                const rankNum = document.createElement('span');
+                rankNum.textContent = `${index + 1}.`;
+                rank.appendChild(rankNum);
+                
+                const name = document.createElement('span');
+                name.className = 'score-name';
+                name.textContent = entry.name;
+                
+                const scoreValue = document.createElement('span');
+                scoreValue.className = 'score-value';
+                scoreValue.textContent = entry.score;
+                
+                item.appendChild(rank);
+                item.appendChild(name);
+                item.appendChild(scoreValue);
+                
+                // Add duration if available
+                if (entry.durationSeconds) {
+                    const duration = document.createElement('span');
+                    duration.className = 'score-duration';
+                    duration.textContent = `${entry.durationSeconds}s`;
+                    item.appendChild(duration);
+                }
+                
+                // Add date if available (hidden on mobile via CSS)
+                if (entry.recordedAt) {
+                    const date = document.createElement('span');
+                    date.className = 'score-date';
+                    const dateObj = new Date(entry.recordedAt);
+                    date.textContent = dateObj.toLocaleDateString();
+                    item.appendChild(date);
+                }
             }
             
             list.appendChild(item);
         });
         
         container.appendChild(list);
+        
+        // Scroll to pending score row if it exists
+        if (pendingScore !== null) {
+            setTimeout(() => {
+                const scoresList = list;
+                const pendingRow = scoresList.querySelector('.pending-score');
+                
+                if (scoresList && pendingRow) {
+                    const rowTop = pendingRow.offsetTop;
+                    const rowHeight = pendingRow.offsetHeight;
+                    const listHeight = scoresList.clientHeight;
+                    
+                    const targetScrollTop = rowTop - (listHeight / 2) + (rowHeight / 2);
+                    
+                    scoresList.scrollTo({
+                        top: Math.max(0, targetScrollTop),
+                        behavior: 'smooth'
+                    });
+                }
+            }, 150);
+        }
     }
     
     // Create record control section
