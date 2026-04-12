@@ -131,6 +131,18 @@ body {
     transform: translateY(0);
 }
 
+.view-scores-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(255, 105, 180, 0.2);
+}
+
+.view-scores-btn:disabled:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(255, 105, 180, 0.2);
+}
+
 #score,
 #timer {
     color: #ff1493;
@@ -839,6 +851,14 @@ body {
     font-weight: bold;
     color: #ff1493;
     margin-bottom: 25px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.record-separator {
+    margin: 0 4px;
 }
 
 .input-group {
@@ -1142,6 +1162,11 @@ body {
     
     .scores-list {
         max-height: 310px;
+    }
+    
+    .record-score-display {
+        font-size: 1.5rem;
+        gap: 6px;
     }
     
     .modal-title-sparkle {

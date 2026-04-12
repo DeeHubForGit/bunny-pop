@@ -204,6 +204,7 @@ function startGame() {
     // Disable controls during gameplay
     speedSlider.disabled = true;
     setTimeSelectorEnabled(false);
+    viewScoresBtn.disabled = true;
     
     // Start timer
     timerInterval = setInterval(updateTimer, 1000);
@@ -552,6 +553,7 @@ function endGame() {
     // Re-enable controls
     speedSlider.disabled = false;
     setTimeSelectorEnabled(true);
+    viewScoresBtn.disabled = false;
     
     // Show game over overlay
     startBtn.classList.add('hidden');
@@ -714,7 +716,7 @@ function openModal(title, bodyContent, actions, allowDismiss = true) {
     modalActions.innerHTML = '';
     if (actions && actions.length > 0) {
         // Add class if there are multiple action types
-        if (actions.some(a => a.danger)) {
+        if (actions.some(a => a.danger) || (actions.length === 2 && actions.some(a => !a.primary))) {
             modalActions.classList.add('has-secondary');
         } else {
             modalActions.classList.remove('has-secondary');
@@ -766,6 +768,9 @@ function closeModal() {
 }
 
 function showScoresModal() {
+    // Prevent opening during active gameplay
+    if (gameActive) return;
+    
     const scores = getSortedScores();
     
     // Create container for body content
@@ -901,7 +906,7 @@ function showScoresModal() {
     
     // Add Close button as primary action (right side)
     actions.push({
-        label: 'Close',
+        label: '✔ Close',
         primary: true,
         onClick: closeModal
     });
@@ -956,7 +961,7 @@ function showRecordScoreModal(newScore, durationSeconds) {
     
     const scoreDisplay = document.createElement('div');
     scoreDisplay.className = 'record-score-display';
-    scoreDisplay.textContent = `Score: ${newScore} • Time: ${durationSeconds}s`;
+    scoreDisplay.innerHTML = `<span>Score: ${newScore}</span><span class="record-separator">•</span><span>Time: ${durationSeconds}s</span>`;
     
     const inputGroup = document.createElement('div');
     inputGroup.className = 'input-group';
@@ -1041,7 +1046,7 @@ function showRecordScoreModal(newScore, durationSeconds) {
             }
         },
         {
-            label: 'Yes',
+            label: '✔ Yes',
             primary: true,
             onClick: handleSubmit
         }
